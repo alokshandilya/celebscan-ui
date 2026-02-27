@@ -374,8 +374,14 @@ export default function App() {
                       src={item.local_path}
                       alt="Post visual"
                       effect="blur"
-                      threshold={300}
-                      visibleByDefault={idx < 4}
+                      threshold={800}
+                      visibleByDefault={idx < 12}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
                       style={{
                         width: "100%",
                         height: "100%",
