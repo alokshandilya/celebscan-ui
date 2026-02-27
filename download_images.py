@@ -49,8 +49,8 @@ def download_images():
 
         try:
             # Polite delay
-            print("Waiting 2 seconds...")
-            time.sleep(2)
+            print("Waiting 1 seconds...")
+            time.sleep(1)
             
             post = instaloader.Post.from_shortcode(L.context, shortcode)
             
