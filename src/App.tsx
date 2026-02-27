@@ -371,11 +371,7 @@ export default function App() {
                       {item.status}
                     </span>
                     <LazyLoadImage
-                      src={
-                        item.local_path ||
-                        item.display_url ||
-                        `${item.post_url}media/?size=l`
-                      }
+                      src={item.local_path}
                       alt="Post visual"
                       effect="blur"
                       threshold={300}
@@ -395,17 +391,11 @@ export default function App() {
                       }}
                       onError={(e: any) => {
                         const target = e.currentTarget;
-                        if (!target.dataset.retried && item.display_url) {
-                          // If direct CDN link expired or failed, fallback to the Instagram redirect URL
-                          target.dataset.retried = "true";
-                          target.src = `${item.post_url}media/?size=l`;
-                        } else {
-                          // Both failed, hide image and show the URL string
-                          target.style.display = "none";
-                          const fallback =
-                            target.nextElementSibling as HTMLElement;
-                          if (fallback) fallback.style.display = "block";
-                        }
+                        // Failed, hide image and show the URL string
+                        target.style.display = "none";
+                        const fallback =
+                          target.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = "block";
                       }}
                     />
                     <div
