@@ -382,12 +382,6 @@ export default function App() {
                         objectFit: "cover",
                         display: "block",
                       }}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        display: "block",
-                      }}
                       wrapperProps={{
                         style: {
                           display: "block",
