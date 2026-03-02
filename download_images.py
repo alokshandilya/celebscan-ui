@@ -7,6 +7,17 @@ from urllib.parse import urlparse
 # Initialize Instaloader
 L = instaloader.Instaloader()
 
+# Optional: Login to avoid rate limits
+# usage: IG_USER=your_username IG_PASSWORD=your_password python download_images.py
+if 'IG_USER' in os.environ and 'IG_PASSWORD' in os.environ:
+    try:
+        print(f"Logging in as {os.environ['IG_USER']}...")
+        L.login(os.environ['IG_USER'], os.environ['IG_PASSWORD'])
+        print("Login successful!")
+    except Exception as e:
+        print(f"Login failed: {e}")
+        print("Continuing without login (rate limits may apply)...")
+
 # Paths
 DATA_FILE = 'public/data.json'
 IMAGES_DIR = 'public/images'

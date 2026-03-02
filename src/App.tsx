@@ -10,6 +10,8 @@ import {
   Bot,
   User,
   Link as LinkIcon,
+  Video,
+  Image as ImageIcon,
 } from "lucide-react";
 import { LazyLoadImage } from "react-lazy-load-image-component";
 import "react-lazy-load-image-component/src/effects/blur.css";
@@ -17,29 +19,43 @@ import "react-lazy-load-image-component/src/effects/blur.css";
 interface Match {
   celebrity: string;
   similarity: number;
-  face_index: number;
+  face_index?: number;
+}
+
+interface Appearance {
+  time_str: string;
+  time_sec: number;
+  similarity: number;
+}
+
+interface ReelMatch {
+  celebrity: string;
+  best_similarity: number;
+  appearances: Appearance[];
 }
 
 interface PostData {
   post_id: string;
   post_url: string;
-  display_url: string;
+  display_url?: string;
   status: string;
-  matches: Match[];
+  matches: (Match | ReelMatch)[];
   caption: string;
   owner: string;
-  likes: number;
-  timestamp: string;
-  hashtags: string[];
-  ai_generated: string;
-  ai_score: number;
-  displayMatches?: Match[];
+  likes?: number;
+  timestamp?: string;
+  hashtags?: string[];
+  ai_generated?: string;
+  ai_score?: number;
+  displayMatches?: (Match | ReelMatch)[];
   local_path?: string;
+  // properties specific to reels or common
 }
 
 const ITEMS_PER_PAGE = 24;
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<"images" | "reels">("images");
   const [data, setData] = useState<PostData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,17 +71,40 @@ export default function App() {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    fetch("/data.json")
+    setLoading(true);
+    const endpoint =
+      activeTab === "images" ? "/data.json" : "/all_results.json";
+
+    fetch(endpoint)
       .then((res) => res.json())
-      .then((jsonData: PostData[]) => {
-        setData(jsonData);
+      .then((jsonData: any[]) => {
+        // Normalize data structure if needed
+        // For reels, matches have 'best_similarity' instead of 'similarity'
+        // We can normalize this for filtering purposes
+        const normalizedData = jsonData.map((item) => {
+          if (activeTab === "reels") {
+            return {
+              ...item,
+              // Normalize matches for the filter logic
+              matches: item.matches.map((m: any) => ({
+                ...m,
+                similarity: m.best_similarity, // Map best_similarity to similarity for sorting/filtering
+              })),
+              timestamp: new Date().toISOString(), // Dummy timestamp as it is missing in reels json
+              likes: -1, // Dummy likes
+              ai_generated: "unknown",
+            };
+          }
+          return item;
+        });
+        setData(normalizedData);
         setLoading(false);
       })
       .catch((err) => {
         console.error("Failed to load JSON:", err);
         setLoading(false);
       });
-  }, []);
+  }, [activeTab]);
 
   const uniqueCelebs = useMemo(() => {
     const set = new Set<string>();
@@ -134,19 +173,19 @@ export default function App() {
 
     mappedResult.sort((a, b) => {
       if (sortBy === "timestamp") {
-        return (
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
+        const tA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const tB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return tB - tA;
       }
       if (sortBy === "likes") {
-        return b.likes - a.likes;
+        return (b.likes || 0) - (a.likes || 0);
       }
       if (sortBy === "similarity") {
         const maxA = a.displayMatches?.length
-          ? Math.max(...a.displayMatches.map((m) => m.similarity))
+          ? Math.max(...a.displayMatches.map((m: any) => m.similarity))
           : 0;
         const maxB = b.displayMatches?.length
-          ? Math.max(...b.displayMatches.map((m) => m.similarity))
+          ? Math.max(...b.displayMatches.map((m: any) => m.similarity))
           : 0;
         return maxB - maxA;
       }
@@ -179,7 +218,15 @@ export default function App() {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, celebFilter, minSimilarity, aiFilter, minAiScore, sortBy]);
+  }, [
+    statusFilter,
+    celebFilter,
+    minSimilarity,
+    aiFilter,
+    minAiScore,
+    sortBy,
+    activeTab,
+  ]);
 
   return (
     <div className="layout">
@@ -197,6 +244,26 @@ export default function App() {
           <h2 className="title" style={{ margin: 0 }}>
             CelebScan Demo
           </h2>
+        </div>
+
+        <div
+          className="tab-group"
+          style={{ marginBottom: "20px", display: "flex", gap: "10px" }}
+        >
+          <button
+            className={`btn ${activeTab === "images" ? "btn-primary" : "btn-secondary"}`}
+            style={{ flex: 1, justifyContent: "center" }}
+            onClick={() => setActiveTab("images")}
+          >
+            <ImageIcon size={16} /> Images
+          </button>
+          <button
+            className={`btn ${activeTab === "reels" ? "btn-primary" : "btn-secondary"}`}
+            style={{ flex: 1, justifyContent: "center" }}
+            onClick={() => setActiveTab("reels")}
+          >
+            <Video size={16} /> Reels
+          </button>
         </div>
 
         <div className="form-group">
@@ -370,53 +437,89 @@ export default function App() {
                     <span className="status-badge" style={{ zIndex: 10 }}>
                       {item.status}
                     </span>
-                    <LazyLoadImage
-                      src={item.local_path}
-                      alt="Post visual"
-                      effect="blur"
-                      threshold={800}
-                      visibleByDefault={idx < 12}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        display: "block",
-                      }}
-                      wrapperProps={{
-                        style: {
-                          display: "block",
+                    {activeTab === "images" ? (
+                      <LazyLoadImage
+                        src={item.local_path}
+                        alt="Post visual"
+                        effect="blur"
+                        threshold={800}
+                        visibleByDefault={idx < 12}
+                        style={{
                           width: "100%",
                           height: "100%",
-                        },
-                      }}
-                      onError={(e: any) => {
-                        const target = e.currentTarget;
-                        // Failed, hide image and show the URL string
-                        target.style.display = "none";
-                        const fallback =
-                          target.nextElementSibling as HTMLElement;
-                        if (fallback) fallback.style.display = "block";
-                      }}
-                    />
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                        wrapperProps={{
+                          style: {
+                            display: "block",
+                            width: "100%",
+                            height: "100%",
+                          },
+                        }}
+                        onError={(e: any) => {
+                          const target = e.currentTarget;
+                          // Failed, hide image and show the URL string
+                          target.style.display = "none";
+                          const fallback =
+                            target.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = "block";
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "#000",
+                          color: "#fff",
+                        }}
+                      >
+                        <Video size={48} />
+                      </div>
+                    )}
                     <div
                       className="url-block"
                       style={{
-                        display: "none",
+                        display: activeTab === "reels" ? "flex" : "none", // For reels, we might want to show this on hover or always if no thumb
+                        flexDirection: "column",
                         padding: "20px",
                         position: "absolute",
                         top: "50%",
                         transform: "translateY(-50%)",
                         width: "100%",
                         wordBreak: "break-all",
+                        textAlign: "center",
                       }}
                     >
-                      <strong>POST URL</strong>
-                      <br />
+                      {activeTab === "images" && (
+                        <>
+                          <strong>POST URL</strong>
+                          <br />
+                        </>
+                      )}
+                      {activeTab === "reels" && (
+                        <a
+                          href={item.post_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-primary"
+                          style={{ marginBottom: "10px" }}
+                        >
+                          Watch Reel
+                        </a>
+                      )}
                       <a
                         href={item.post_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="link"
+                        style={{
+                          display: activeTab === "images" ? "block" : "none",
+                        }}
                       >
                         {item.post_url}
                       </a>
@@ -424,25 +527,28 @@ export default function App() {
                   </div>
 
                   <div className="card-content">
-                    <div className="badge-row">
-                      {item.ai_generated === "yes" && (
-                        <div className="badge">
-                          <Bot size={12} /> AI Gen (
-                          {(item.ai_score * 100).toFixed(0)}%)
-                        </div>
-                      )}
-                      {item.ai_generated === "no" && (
-                        <div className="badge">
-                          <User size={12} /> Real (
-                          {(item.ai_score * 100).toFixed(0)}%)
-                        </div>
-                      )}
-                      {item.ai_generated !== "yes" &&
-                        item.ai_generated !== "no" &&
-                        item.ai_generated && (
-                          <div className="badge">{item.ai_generated}</div>
+                    {activeTab === "images" && (
+                      <div className="badge-row">
+                        {item.ai_generated === "yes" && (
+                          <div className="badge">
+                            <Bot size={12} /> AI Gen (
+                            {((item.ai_score || 0) * 100).toFixed(0)}%)
+                          </div>
                         )}
-                    </div>
+                        {item.ai_generated === "no" && (
+                          <div className="badge">
+                            <User size={12} /> Real (
+                            {((item.ai_score || 0) * 100).toFixed(0)}%)
+                          </div>
+                        )}
+                        {item.ai_generated !== "yes" &&
+                          item.ai_generated !== "no" &&
+                          item.ai_generated &&
+                          item.ai_generated !== "unknown" && (
+                            <div className="badge">{item.ai_generated}</div>
+                          )}
+                      </div>
+                    )}
 
                     <p className="caption">
                       {item.caption || "No caption provided."}
@@ -450,14 +556,32 @@ export default function App() {
 
                     {item.displayMatches && item.displayMatches.length > 0 && (
                       <div className="matches-list">
-                        {item.displayMatches.map((m, i) => (
-                          <div key={i} className="match-item">
-                            <span className="match-celeb">
-                              {m.celebrity.replace("_", " ")}
-                            </span>
-                            <span className="match-sim">
-                              {(m.similarity * 100).toFixed(1)}% match
-                            </span>
+                        {item.displayMatches.map((m: any, i) => (
+                          <div key={i} className="match-item-wrapper">
+                            <div className="match-item">
+                              <span className="match-celeb">
+                                {m.celebrity.replace("_", " ")}
+                              </span>
+                              <span className="match-sim">
+                                {(m.similarity * 100).toFixed(1)}% match
+                              </span>
+                            </div>
+                            {/* Show timestamps for reels if available */}
+                            {m.appearances && (
+                              <div
+                                style={{
+                                  fontSize: "0.75rem",
+                                  color: "var(--text-muted)",
+                                  paddingLeft: "4px",
+                                  marginBottom: "4px",
+                                }}
+                              >
+                                @{" "}
+                                {m.appearances
+                                  .map((a: any) => a.time_str)
+                                  .join(", ")}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -465,14 +589,18 @@ export default function App() {
                   </div>
 
                   <div className="card-footer">
-                    <div className="icon-text">
-                      <Heart size={14} />
-                      {item.likes > -1 ? item.likes : "Hidden"}
-                    </div>
-                    <div className="icon-text">
-                      <Clock size={14} />
-                      {new Date(item.timestamp).toLocaleDateString()}
-                    </div>
+                    {activeTab === "images" && (
+                      <div className="icon-text">
+                        <Heart size={14} />
+                        {(item.likes || -1) > -1 ? item.likes : "Hidden"}
+                      </div>
+                    )}
+                    {item.timestamp && (
+                      <div className="icon-text">
+                        <Clock size={14} />
+                        {new Date(item.timestamp).toLocaleDateString()}
+                      </div>
+                    )}
                     <a
                       href={item.post_url}
                       target="_blank"
