@@ -474,8 +474,9 @@ export default function App() {
                         style={{
                           width: "100%",
                           height: "100%",
-                          objectFit: "cover",
+                          objectFit: "contain",
                           display: "block",
+                          backgroundColor: "#000",
                         }}
                       />
                     ) : (
@@ -496,7 +497,7 @@ export default function App() {
                     <div
                       className="url-block"
                       style={{
-                        display: activeTab === "reels" ? "flex" : "none", // For reels, we might want to show this on hover or always if no thumb
+                        display: "none",
                         flexDirection: "column",
                         padding: "20px",
                         position: "absolute",
@@ -512,17 +513,6 @@ export default function App() {
                           <strong>POST URL</strong>
                           <br />
                         </>
-                      )}
-                      {activeTab === "reels" && (
-                        <a
-                          href={item.post_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn btn-primary"
-                          style={{ marginBottom: "10px" }}
-                        >
-                          Watch Reel
-                        </a>
                       )}
                       <a
                         href={item.post_url}
