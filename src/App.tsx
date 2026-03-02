@@ -32,6 +32,7 @@ interface ReelMatch {
   celebrity: string;
   best_similarity: number;
   appearances: Appearance[];
+  similarity?: number;
 }
 
 interface PostData {
@@ -150,7 +151,7 @@ export default function App() {
           item.matches &&
           item.matches.some((m) => {
             if (celebFilter && m.celebrity !== celebFilter) return false;
-            if (minSimilarity > 0 && m.similarity < minSimilarity / 100)
+            if (minSimilarity > 0 && (m.similarity || 0) < minSimilarity / 100)
               return false;
             return true;
           }),
@@ -164,7 +165,7 @@ export default function App() {
         ...item,
         displayMatches: item.matches.filter((m) => {
           if (celebFilter && m.celebrity !== celebFilter) return false;
-          if (minSimilarity > 0 && m.similarity < minSimilarity / 100)
+          if (minSimilarity > 0 && (m.similarity || 0) < minSimilarity / 100)
             return false;
           return true;
         }),
@@ -464,6 +465,17 @@ export default function App() {
                           const fallback =
                             target.nextElementSibling as HTMLElement;
                           if (fallback) fallback.style.display = "block";
+                        }}
+                      />
+                    ) : item.local_path ? (
+                      <video
+                        src={item.local_path}
+                        controls
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
                         }}
                       />
                     ) : (
