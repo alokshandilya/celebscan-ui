@@ -505,7 +505,7 @@ export default function App() {
                       style={{
                         position: "absolute",
                         top: "10px",
-                        right: "10px",
+                        left: "10px",
                         zIndex: 20,
                         backgroundColor: pinnedItems.has(item.post_id)
                           ? "var(--primary-color, #0095f6)"
