@@ -12,6 +12,7 @@ import {
   Link as LinkIcon,
   Video,
   Image as ImageIcon,
+  Pin,
 } from "lucide-react";
 import { LazyLoadImage } from "react-lazy-load-image-component";
 import "react-lazy-load-image-component/src/effects/blur.css";
@@ -67,6 +68,56 @@ export default function App() {
   const [aiFilter, setAiFilter] = useState<string>("all");
   const [minAiScore, setMinAiScore] = useState<number>(0);
   const [sortBy, setSortBy] = useState<string>("timestamp");
+  const [pinnedItems, setPinnedItems] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    // Fetch pinned items from server
+    fetch("/api/pinned")
+      .then((res) => {
+        if (!res.ok) throw new Error("Network response was not ok");
+        return res.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setPinnedItems(new Set(data));
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch pinned items:", err);
+      });
+  }, []);
+
+  const togglePin = (postId: string) => {
+    // Optimistic update
+    setPinnedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(postId)) {
+        next.delete(postId);
+      } else {
+        next.add(postId);
+      }
+      return next;
+    });
+
+    // Persist to server
+    fetch("/api/pin", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ post_id: postId }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        // Confirm server state
+        if (data.pinned && Array.isArray(data.pinned)) {
+          setPinnedItems(new Set(data.pinned));
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to toggle pin on server:", err);
+      });
+  };
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -173,6 +224,12 @@ export default function App() {
     });
 
     mappedResult.sort((a, b) => {
+      const isPinnedA = pinnedItems.has(a.post_id);
+      const isPinnedB = pinnedItems.has(b.post_id);
+
+      if (isPinnedA && !isPinnedB) return -1;
+      if (!isPinnedA && isPinnedB) return 1;
+
       if (sortBy === "timestamp") {
         const tA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
         const tB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
@@ -208,6 +265,7 @@ export default function App() {
     aiFilter,
     minAiScore,
     sortBy,
+    pinnedItems,
   ]);
 
   const paginatedData = useMemo(() => {
@@ -438,6 +496,41 @@ export default function App() {
                     <span className="status-badge" style={{ zIndex: 10 }}>
                       {item.status}
                     </span>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        togglePin(item.post_id);
+                      }}
+                      style={{
+                        position: "absolute",
+                        top: "10px",
+                        right: "10px",
+                        zIndex: 20,
+                        backgroundColor: pinnedItems.has(item.post_id)
+                          ? "var(--primary-color, #0095f6)"
+                          : "rgba(0, 0, 0, 0.5)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "50%",
+                        width: "32px",
+                        height: "32px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                      }}
+                      title={pinnedItems.has(item.post_id) ? "Unpin" : "Pin"}
+                    >
+                      <Pin
+                        size={16}
+                        fill={
+                          pinnedItems.has(item.post_id)
+                            ? "currentColor"
+                            : "none"
+                        }
+                      />
+                    </button>
                     {activeTab === "images" ? (
                       <LazyLoadImage
                         src={item.local_path}
